@@ -34,10 +34,24 @@ For the full shortcut list, see `Help > Shortcut`.
 ## Add behavior type
 1. Use the panel on the right side of the GUI labeled `Behavior Name`, `Behavior Type`, `Color Identifier`, and `Note`.
 - `Behavior Name`: Behavior name (e.g., `grooming`)
-- `Behavior Type`: Behavior type ("State", "Event")
+- `Behavior Type`: Behavior type
+    - `State`: A duration-based behavior with a start and end (e.g., freezing, exploration)
+    - `Event`: A point-in-time behavior marked with a single timestamp (e.g., jump, vocalization)
 - `Color Identifier`: Hex color code (e.g., #ff2020)
 - `Note`: Optional comment or description
 2. Click ```Add behavior``` button to add it to the list on the right.
+
+### Modify behavior type
+To modify an existing behavior:
+1. Click on the behavior you want to edit in the `Behavior List` on the right.
+2. The selected behavior’s information will be loaded into the input fields on the left panel.  
+
+Click the `Modify Behavior` button to apply the updates.
+
+### Remove behavior type
+To remove an existing behavior:
+1. Click on the behavior you want to remove in the `Behavior List` on the right.
+2. Click `Remove behavior` button.
 
 
 ## Save defined behavior types
