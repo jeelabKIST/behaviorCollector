@@ -59,7 +59,6 @@ For the full shortcut list, see `Help > Shortcut`.
 2. Select a directory to save all annotations behaviors.
 3. Each behavior is saved as a seperated .json file with the following structure:
 ```json
-// example_behavior.json
 {
     "name": "Behavior Test 1",
     "id": 0,
