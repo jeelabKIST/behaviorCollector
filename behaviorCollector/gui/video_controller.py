@@ -12,6 +12,8 @@ from .config_menu import MenuBuilder
 
 FPS_DEFAULT = 30
 PENDING_TIME = 50
+MOVE_LARGE = 10000 # 10 s
+MOVE_SMALL = 5000  # 5s
 
 
 class Controller(QWidget):
@@ -138,6 +140,7 @@ class Controller(QWidget):
     def _do_seek(self):
         if self.pending_seek_ms != 0:
             new_pos = max(0, self.current + self.pending_seek_ms) # ms
+            new_pos = min(new_pos, self.slider.maximum())
             for viewer in self.viewers:
                 if viewer is not None:
                     viewer.update_position(position_ms=new_pos)
@@ -181,23 +184,35 @@ class Controller(QWidget):
 
         self.playing_state = not self.playing_state
             
-    def handle_key_input(self, key):
+    def handle_key_input(self, event):
         if self.num_video == 0:
             return
         
-        # if key == Qt.Key_P:
-        if key == Qt.Key_Space:
-            self.toggle_play()
-        elif key == Qt.Key_H:
-            self.seek_relative(-int(1000/self.min_fps))
-        elif key == Qt.Key_L:
-            self.seek_relative(int(1000/self.min_fps))
-        elif key == Qt.Key_J: # speed down
-            self.update_speed_relative(-0.1)
-        elif key == Qt.Key_K: # speed up
-            self.update_speed_relative(0.1)
+        key = event.key()
+        modifiers = event.modifiers()
+        
+        if modifiers & Qt.ShiftModifier:
+            if key == Qt.Key_H:
+                self.seek_relative(-MOVE_LARGE)
+            elif key == Qt.Key_L:
+                self.seek_relative(MOVE_LARGE)
+            elif key == Qt.Key_J:
+                self.seek_relative(-MOVE_SMALL)
+            elif key == Qt.Key_K:
+                self.seek_relative(MOVE_SMALL)
         else:
-            raise ValueError(f"Key {key} not recognized in Controller")            
+            if key == Qt.Key_Space:
+                self.toggle_play()
+            elif key == Qt.Key_H:
+                self.seek_relative(-int(1000/self.min_fps))
+            elif key == Qt.Key_L:
+                self.seek_relative(int(1000/self.min_fps))
+            elif key == Qt.Key_J: # speed down
+                self.update_speed_relative(-0.1)
+            elif key == Qt.Key_K: # speed up
+                self.update_speed_relative(0.1)
+            else:
+                raise ValueError(f"Key {key} not recognized in Controller")            
     
     @property   
     def current(self):
