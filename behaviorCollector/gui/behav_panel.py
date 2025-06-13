@@ -513,7 +513,8 @@ class BehavPanel(QWidget):
         else:
             raise ValueError(f"Unexpected type {tp}")
     
-    def handle_key_input(self, key):
+    def handle_key_input(self, event):
+        key = event.key()
         if key == Qt.Key_Z: # Undo
             self._reset_keep()
         elif key == Qt.Key_X:
