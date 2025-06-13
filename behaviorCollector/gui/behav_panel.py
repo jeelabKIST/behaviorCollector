@@ -105,6 +105,9 @@ class BehavViewer(QGraphicsView):
             self.tick_labels.append(text)
             
     def _update_ticks(self, time_ms):
+        if self.duration_ms == 0:
+            return
+        
         center_x = time_ms / self.duration_ms * self.width
         n0, dn = int(self.max_show / 2), int(self.max_show/4)
         dt = self.max_show_ms / (NUM_TICKS - 1)
@@ -213,6 +216,7 @@ class BehavPanel(QWidget):
         self.comb_type = QComboBox()
         self.color_picker = ColorPicker()
         self.button_add = QPushButton("Add Behavior")
+        self.button_clear = QPushButton("Clear Input")
         self.text_note = QPlainTextEdit()
         
         layout_form.addRow(_set_label("Behavior Name"), self.text_name)
@@ -223,9 +227,11 @@ class BehavPanel(QWidget):
         
         self.comb_type.addItems(BEHAV_TYPES)
         self.button_add.clicked.connect(self._add_behav)
+        self.button_clear.clicked.connect(self._clear_behav)
         
         layout_v.addLayout(layout_form)
         layout_v.addWidget(self.button_add)
+        layout_v.addWidget(self.button_clear)
         layout.addLayout(layout_v)
         
         layout_v2 = QVBoxLayout()
@@ -299,6 +305,8 @@ class BehavPanel(QWidget):
             row.modify_info(type, name, color_hex)
             
             self.button_add.setText("Add Behavior")
+            self.button_clear.setText("Clear Input")
+            
             self.is_modifying = False
             row.setChecked(False)
             
@@ -326,6 +334,7 @@ class BehavPanel(QWidget):
         
     def _modify_behav(self):
         self.button_add.setText("Modify Behavior")
+        self.button_clear.setText("Remove Behavior")
         self.is_modifying = True
         
         for bid, row in enumerate(self.behav_rows):
@@ -336,6 +345,24 @@ class BehavPanel(QWidget):
         self.comb_type.setCurrentText(self.bcollector.get_type(bid))
         self.text_note.setPlainText(self.bcollector.get_note(bid))
         self.color_picker.setColor(QColor(self.bcollector.get_color(bid)))
+        
+    def _clear_behav(self):
+        if self.is_modifying:
+            
+            for bid, row in enumerate(self.behav_rows):
+                if row.isChecked():
+                    break
+            
+            self.scroll_layout.removeWidget(row)
+            row.setParent(None)
+            self.behav_rows.remove(row)
+            self.bcollector.delete_behav(bid)
+            
+            self.is_modifying = False
+            self.button_add.setText("Add Behavior")
+            self.button_clear.setText("Clear Input")
+        else:
+            self._reset_input()
         
     def load_behavior(self):
         path_dir = QFileDialog.getExistingDirectory(self, "Select behavior directory")
@@ -432,7 +459,7 @@ class BehavPanel(QWidget):
         if key == Qt.Key_Z: # Undo
             self._reset_keep()
         elif key == Qt.Key_X:
-            self._delete_behav(self.current)
+            self._delete_behav(_clear_behav.current)
         else:
             key_id = pyqt_KEY_MAP[key]
             self._keep_behav_time(key_id)
@@ -441,7 +468,7 @@ class BehavPanel(QWidget):
         self.keep_time_ms = -1
         self.key_id_activate = -1
         
-    def _delete_behav(self, time_ms):
+    def _delete_behav(_clear_behav, time_ms):
         for b in self.bcollector.behav_set:
             b.delete(time_ms)
         self.behav_viewer.delete_item(time_ms)        

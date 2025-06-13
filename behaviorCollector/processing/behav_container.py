@@ -129,6 +129,9 @@ class BehavCollector:
                 video_path=self.video_path
             )
         )
+        
+    def delete_behav(self, behav_id):
+        self.behav_set.pop(behav_id)
     
     @is_valid_path
     def save(self, path_dir: str):
