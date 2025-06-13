@@ -13,7 +13,7 @@ from PyQt5.QtGui import QPen, QColor, QKeySequence, QFont, QPainter
 
 from collections import OrderedDict
 from .video_controller import Controller
-from .utils_gui import ColorPicker, tqdm_qt
+from .utils_gui import ColorPicker, tqdm_qt, error2messagebox
 from .config_menu import MenuBuilder
 
 from ..processing.behav_container import BehavCollector, BEHAV_TYPES, EVENT, STATE
@@ -38,6 +38,7 @@ pyqt_KEY_MAP = OrderedDict({
 
 MAX_KEY = len(pyqt_KEY_MAP) - 2
 NUM_TICKS = 5
+CURRENT_KEY_ID = 0
 
 
 class BehavLine(QGraphicsLineItem):
@@ -161,7 +162,15 @@ class BehavViewer(QGraphicsView):
         
         
 class BehavItemRow(QPushButton):
-    def __init__(self, behav_key, behav_name, behav_type, behav_color, parent=None):
+    
+    clicked_with_key = pyqtSignal(int)
+    
+    def __init__(self, behav_key: str, behav_name: str, behav_type: str, behav_color: str, parent=None):
+        
+        global CURRENT_KEY_ID
+        self.key_id = CURRENT_KEY_ID
+        CURRENT_KEY_ID += 1
+        
         super().__init__(parent)
         self.setCheckable(True)
         self.setLayout(QHBoxLayout())
@@ -170,6 +179,7 @@ class BehavItemRow(QPushButton):
         self.behav_name = behav_name
         self.behav_type = behav_type
         self.behav_key = behav_key
+        self.clicked.connect(self.on_clicked)
         
         self.label_name = QLabel(f"({self.behav_key}) {behav_name} [{behav_type}]")
         
@@ -181,10 +191,14 @@ class BehavItemRow(QPushButton):
         self.layout().addWidget(self.color_box)
 
         self.setCheckable(True)
+        self.finding_timepoints = False
         
     def modify_info(self, behav_name, behav_type, behav_color):
         self.label_name.setText(f"({self.behav_key}) {behav_name} [{behav_type}]")
         self.color_box.setStyleSheet(f"background-color: {behav_color}; border: 1px solid black;")
+        
+    def on_clicked(self):
+        self.clicked_with_key.emit(self.key_id)
 
 
 class BehavPanel(QWidget):
@@ -199,6 +213,7 @@ class BehavPanel(QWidget):
         self.video_controller = None
         self.behav_viewer = None
         self.is_modifying = False
+        self.current_selection = -1
         self.duration_ms = 0
         self._reset_keep()
         
@@ -227,7 +242,7 @@ class BehavPanel(QWidget):
         
         self.comb_type.addItems(BEHAV_TYPES)
         self.button_add.clicked.connect(self._add_behav)
-        self.button_clear.clicked.connect(self._clear_behav)
+        self.button_clear.clicked.connect(self.clear_behav)
         
         layout_v.addLayout(layout_form)
         layout_v.addWidget(self.button_add)
@@ -261,25 +276,29 @@ class BehavPanel(QWidget):
         
     def connect_controller(self, video_control_obj: Controller):
         self.video_controller = video_control_obj
-        self.video_controller.video_loaded.connect(self.video_loaded)
-        self.video_controller.video_closed.connect(self.video_closed)
+        # self.video_controller.video_loaded.connect(self.video_loaded)
+        # self.video_controller.video_closed.connect(self.video_closed)
+        # self.video_paths = video_control_obj.current_video_path
         self.video_controller.duration_updated.connect(self._update_duration)
         
     def connect_behav_viewer(self, behave_viewer_obj: BehavViewer):
         self.behav_viewer = behave_viewer_obj
         
-    def video_loaded(self, video_path: str):
-        self.video_path = video_path
-        if self.bcollector is None:
-            self.bcollector = BehavCollector()
-        self.bcollector.add_video_path(video_path)
+    # def video_loaded(self, video_path: str):
+    #     self.video_path = video_path
+    #     if self.bcollector is None:
+    #         self.bcollector = BehavCollector()
+    #     self.bcollector.add_video_path(video_path)
         
-    def video_closed(self, video_id: int):
-        self.bcollector.delete_video_path(video_id)
+    # def video_closed(self, video_id: int):
+    #     self.bcollector.delete_video_path(video_id)
     
     def _add_behav(self):
         if self.bcollector is None:
-            raise ValueError("Please load the video first")
+            if self.video_controller.num_video == 0:
+                raise ValueError("Please load the video first")
+            else:
+                self.bcollector = BehavCollector()
         
         name = self.text_name.text()
         type = self.comb_type.currentText()
@@ -328,76 +347,107 @@ class BehavPanel(QWidget):
             )
             self.scroll_layout.addWidget(row)
             self.behav_rows.append(row)
-            row.clicked.connect(self._modify_behav)
+            row.clicked_with_key.connect(self.modify_behav)
             
         self._reset_input()
         
-    def _modify_behav(self):
-        self.button_add.setText("Modify Behavior")
-        self.button_clear.setText("Remove Behavior")
-        self.is_modifying = True
-        
-        for bid, row in enumerate(self.behav_rows):
-            if row.isChecked():
-                break
-        
-        self.text_name.setText(self.bcollector.get_name(bid))
-        self.comb_type.setCurrentText(self.bcollector.get_type(bid))
-        self.text_note.setPlainText(self.bcollector.get_note(bid))
-        self.color_picker.setColor(QColor(self.bcollector.get_color(bid)))
-        
-    def _clear_behav(self):
+    def _toggle_modifying(self, key_id):
+        if self.is_modifying:
+            self.button_add.setText("Add Behavior")
+            self.button_clear.setText("Clear Input")
+            self.is_modifying = False
+            self.current_selection = -1
+            self._reset_input()
+        else:
+            self.button_add.setText("Modify Behavior")
+            self.button_clear.setText("Remove Behavior")
+            self.is_modifying = True
+            self.current_selection = key_id
+    
+    @error2messagebox(to_warn=True)
+    def modify_behav(self, key_id: int):
+        if self.is_modifying:
+            if key_id != self.current_selection:
+                self.behav_rows[key_id].setChecked(False)
+                raise ValueError("Please apply the modification first")
+            else:
+                self._toggle_modifying(key_id)
+            
+        else:
+            self._toggle_modifying(key_id)
+            self.text_name.setText(self.bcollector.get_name(key_id))
+            self.comb_type.setCurrentText(self.bcollector.get_type(key_id))
+            self.text_note.setPlainText(self.bcollector.get_note(key_id))
+            self.color_picker.setColor(QColor(self.bcollector.get_color(key_id)))
+            
+    @error2messagebox(to_warn=True)
+    def clear_behav(self):
         if self.is_modifying:
             
-            for bid, row in enumerate(self.behav_rows):
-                if row.isChecked():
-                    break
+            key_id = self.current_selection
+            row = self.behav_rows[key_id]
             
             self.scroll_layout.removeWidget(row)
             row.setParent(None)
             self.behav_rows.remove(row)
-            self.bcollector.delete_behav(bid)
+            self.bcollector.delete_behav(key_id)
+            # TODO: need to reorganize the key and mapped shortcut
             
-            self.is_modifying = False
-            self.button_add.setText("Add Behavior")
-            self.button_clear.setText("Clear Input")
+            self._toggle_modifying(key_id)
         else:
             self._reset_input()
         
+    @error2messagebox(to_warn=True)
     def load_behavior(self):
         path_dir = QFileDialog.getExistingDirectory(self, "Select behavior directory")
         if path_dir:
-            self.bcollector.load(path_dir)
-        
-        self._add_behav_set()
-        for n in range(self.bcollector.num):
-            # add behavior event
-            for time_ms in self.bcollector.get_value(n, "time_ms"):
-                self._add_behav_time(n, time_ms, add_to_collector=False)
+            if self.bcollector is not None:
+                raise ValueError("Behavior collector already loaded. Please create a new instance.")
+            
+            if self.video_controller.num_video == 0:
+                raise ValueError("Please load the video first")
+
+            self.bcollector = BehavCollector.load(path_dir)
+            if self.bcollector.num == 0:
+                self.bcollector = None
+                raise ValueError("No behavior data found in the selected directory.")
                 
+            self._add_behav_set()
+            for n in range(self.bcollector.num):
+                for time_ms in self.bcollector.get_value(n, "time_ms"):
+                    self._add_behav_time(n, time_ms, add_to_collector=False)
+    
+    @error2messagebox(to_warn=True)
     def load_behavior_header(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Behavior header",
                                                    "", "Behavior headers (*.json)")
         if file_path:
+            if self.bcollector is not None:
+                raise ValueError("Behavior collector already loaded. Please create a new instance.")
             self.bcollector = BehavCollector.load_header(file_path)
             self._add_behav_set()
-            
+    
+    @error2messagebox(to_warn=True)
     def export_behavior_header(self):
         file_path, _ = QFileDialog.getSaveFileName(self, "Behavior header", "", "Behavior headers (*.json)")
         if file_path:
             if self.bcollector.save_header(file_path):
                 QMessageBox.information(self, "Success", "Behavior header saved successfully.")
     
+    @error2messagebox(to_warn=True)
     def export_behavior(self):
         path_dir = QFileDialog.getExistingDirectory(self, "Select behavior directory")
         if path_dir:
+            self.bcollector.update_video_path(self.video_controller.current_video_path)
             if self.bcollector.save(path_dir):
                 self.signal_saved.emit()
                 QMessageBox.information(self, "Success", "Behavior data saved successfully.")
-                
+    
+    @error2messagebox(to_warn=True)
     def export_epochs(self):
         path_dir = QFileDialog.getExistingDirectory(self, "Select export directory")
         if path_dir:
+            self.bcollector.update_video_path(self.video_controller.current_video_path)
             extractor = BehavExtractor(self.bcollector)
             if extractor.extract_epochs(path_dir, tqdm_fn=tqdm_qt):
                 QMessageBox.information(self, "Success", "Behavior epochs exported successfully.")
@@ -417,6 +467,7 @@ class BehavPanel(QWidget):
             
             self.scroll_layout.addWidget(row)
             self.behav_rows.append(row)
+            row.clicked_with_key.connect(self.modify_behav)
     
     def _reset_input(self):
         self.text_name.clear()
@@ -424,7 +475,9 @@ class BehavPanel(QWidget):
         self.color_picker.setColor(QColor(255,255,255))
         
     def _add_behav_time(self, key_id, time_ms, add_to_collector=True):
-        self.bcollector.add_behav_time(key_id, time_ms)
+        if add_to_collector:
+            self.bcollector.add_behav_time(key_id, time_ms)
+            
         if not isinstance(time_ms, list):
             _time_ms = [time_ms, time_ms+1]
         else:
@@ -447,11 +500,16 @@ class BehavPanel(QWidget):
             if self.keep_time_ms != -1:
                 self._add_behav_time(key_id, [self.keep_time_ms, t0])
                 self._reset_keep()
+                if self.is_modifying:
+                    self._toggle_modifying(-1)
+                
                 self.behav_rows[key_id].setChecked(False)
+                self.behav_rows[key_id].finding_timepoints = False
             else:
                 self.keep_time_ms = t0
                 self.key_id_activate = key_id
                 self.behav_rows[key_id].setChecked(True)
+                self.behav_rows[key_id].finding_timepoints = True
         else:
             raise ValueError(f"Unexpected type {tp}")
     

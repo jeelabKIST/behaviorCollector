@@ -16,8 +16,8 @@ PENDING_TIME = 50
 
 class Controller(QWidget):
     
-    video_loaded = pyqtSignal(str)
-    video_closed = pyqtSignal(int)
+    # video_loaded = pyqtSignal(str)
+    # video_closed = pyqtSignal(int)
     duration_updated = pyqtSignal(int)
     position_updated = pyqtSignal(int)
     
@@ -93,7 +93,6 @@ class Controller(QWidget):
             
             self.viewers.append(viewer)
             viewer.closed.connect(self.closed_video)
-            self.video_loaded.emit(video_path)
             
             if self.num_video == 1:
                 self._connect_viewer_signals(viewer)
@@ -107,12 +106,12 @@ class Controller(QWidget):
             for viewer in self.viewers:
                 if viewer is not None:
                     self._connect_viewer_signals(viewer)
-        self.video_closed.emit(vid)      
         # TODO: remove the viewer informations
         
     def close_all_viewers(self):
         for viewer in self.viewers:
             if viewer is not None:
+                viewer.closed.disconnect(self.closed_video)
                 viewer.close()
     
     def _connect_viewer_signals(self, viewer):
@@ -216,6 +215,14 @@ class Controller(QWidget):
             if viewer is not None:
                 num += 1
         return num
+    
+    @property
+    def current_video_path(self):
+        video_paths = []
+        for viewer in self.viewers:
+            if viewer is not None:
+                video_paths.append(viewer.video_path)
+        return video_paths
         
     def _set_slider_style(self):
         self.slider.setStyleSheet("""
