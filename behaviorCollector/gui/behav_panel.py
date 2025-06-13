@@ -459,7 +459,7 @@ class BehavPanel(QWidget):
         if key == Qt.Key_Z: # Undo
             self._reset_keep()
         elif key == Qt.Key_X:
-            self._delete_behav(_clear_behav.current)
+            self._delete_behav(self.current)
         else:
             key_id = pyqt_KEY_MAP[key]
             self._keep_behav_time(key_id)
@@ -468,7 +468,7 @@ class BehavPanel(QWidget):
         self.keep_time_ms = -1
         self.key_id_activate = -1
         
-    def _delete_behav(_clear_behav, time_ms):
+    def _delete_behav(self, time_ms):
         for b in self.bcollector.behav_set:
             b.delete(time_ms)
         self.behav_viewer.delete_item(time_ms)        
