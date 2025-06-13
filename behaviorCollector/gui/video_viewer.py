@@ -21,6 +21,7 @@ class VideoViewerWindow(QMainWindow):
         self.setFocusPolicy(Qt.NoFocus)
         self.vid = vid
         
+        self.video_path = video_path
         self._init_video(video_path)
         self._init_ui()
     

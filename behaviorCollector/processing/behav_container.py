@@ -21,13 +21,13 @@ class BehavInfo:
     video_path: List = None
     time_ms: str = None
     
-    def add_video_path(self, video_path: str):
-        if self.video_path is None:
-            self.video_path = []
-        self.video_path.append(video_path)
+    # def add_video_path(self, video_path: str):
+    #     if self.video_path is None:
+    #         self.video_path = []
+    #     self.video_path.append(video_path)
         
-    def delete_video_path(self, video_id: int):
-        self.video_path[video_id] = None
+    # def delete_video_path(self, video_id: int):
+    #     self.video_path[video_id] = None
     
     def append(self, time_ms: Union[List, int]=None):
         if self.time_ms is None:
@@ -51,16 +51,21 @@ class BehavInfo:
             if del_time_ms >= _tr[0] and del_time_ms < _tr[1]:
                 self.time_ms.pop(n)
                 break
+    
+    def update_video_path(self, video_path: List[str]):
+        self.video_path = video_path
             
     def save(self, path: str):
         file_name = os.path.join(path, f"{PREFIX}_{self.name}.json")
-        video_path = [v for v in self.video_path if v is not None]
+        if self.video_path is None:
+            raise ValueError("Please define video_path before saving by calling update_video_path()")
+
         data = {
             "name": self.name,
             "id": self.id,
             "note": self.note,
             "type": self.type,
-            "video_path": video_path,
+            "video_path": self.video_path,
             "color_code": self.color_code,
             "time_ms": self.time_ms if self.time_ms is not None else []
         }
@@ -85,8 +90,6 @@ class BehavInfo:
         
 def is_valid_path(func):
     def wrapper(self, *args, **kwargs):
-        if len(self.video_path) == 0:
-            raise ValueError("No video path defined yet")
         return func(self, *args, **kwargs)
     return wrapper
         
@@ -96,15 +99,20 @@ class BehavCollector:
         self.behav_set = []
         self.video_path = []
         
-    def add_video_path(self, video_path: str):
-        self.video_path.append(video_path)
+    def update_video_path(self, video_path: List[str]):
+        self.video_path = video_path
         for b in self.behav_set:
-            b.add_video_path(video_path)
+            b.update_video_path(video_path)
+        
+    # def add_video_path(self, video_path: str):
+    #     self.video_path.append(video_path)
+    #     for b in self.behav_set:
+    #         b.add_video_path(video_path)
             
-    def delete_video_path(self, video_id: int):
-        self.video_path[video_id] = None
-        for b in self.behav_set:
-            b.delete_video_path(video_id)
+    # def delete_video_path(self, video_id: int):
+    #     self.video_path[video_id] = None
+    #     for b in self.behav_set:
+    #         b.delete_video_path(video_id)
     
     @is_valid_path
     def add_behav_time(self, behav_id, time_ms):
@@ -135,16 +143,25 @@ class BehavCollector:
     
     @is_valid_path
     def save(self, path_dir: str):
+        if any(os.scandir(path_dir)):
+            raise ValueError(f"Directory {path_dir} is not empty")
+        
         for behav in self.behav_set:
             behav.save(path_dir)
         return True
     
-    def load(self, path_dir: str):
-        assert len(self.behav_set) == 0
+    @staticmethod
+    def load(path_dir: str):
+        # if self.num != 0:
+        #     raise ValueError("Behavior alread loaded. Please create a new BehavCollector instance.")
+        behav_collector = BehavCollector()
         behav_set =  [f for f in os.listdir(path_dir) if PREFIX in f and ".json" in f]
+        
         for f in behav_set:
-            self.behav_set.append(BehavInfo.load(os.path.join(path_dir, f)))
-        self.behav_set = sorted(self.behav_set, key=lambda b: b.id)
+            behav_collector.behav_set.append(BehavInfo.load(os.path.join(path_dir, f)))
+        behav_collector.behav_set = sorted(behav_collector.behav_set, key=lambda b: b.id)
+        
+        return behav_collector
     
     @is_valid_path
     def save_header(self, file_name: str):
