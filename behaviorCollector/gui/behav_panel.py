@@ -16,6 +16,7 @@ from .video_controller import Controller
 from .utils_gui import ColorPicker, tqdm_qt, error2messagebox
 from .config_menu import MenuBuilder
 
+from collections import defaultdict
 from ..processing.behav_container import BehavCollector, BEHAV_TYPES, EVENT, STATE
 from ..processing.behav_extractor import BehavExtractor
 import re
@@ -39,6 +40,8 @@ pyqt_KEY_MAP = OrderedDict({
 MAX_KEY = len(pyqt_KEY_MAP) - 2
 NUM_TICKS = 5
 CURRENT_KEY_ID = 0
+KEEP_TIME_MS = []
+LAST_ACTIVE_KEY = []
 
 
 class BehavLine(QGraphicsLineItem):
@@ -84,8 +87,17 @@ class BehavViewer(QGraphicsView):
         self.fitInView(QRectF(0, 0, self.max_show, self.height), Qt.IgnoreAspectRatio)
         
         self.lines = []
+        self.num_items = defaultdict(int)
         self._init_ticks()
+        self._init_line()
         self.duration_ms = 0
+        
+    def _init_line(self):
+        self.l0 = QGraphicsLineItem(QLineF(0, 0, 0, self.height))
+        pen = QPen(QColor("#000000"), 0.5)
+        pen.setStyle(Qt.SolidLine)  # dotted, dashed 등도 가능
+        self.l0.setPen(pen)
+        self.scene.addItem(self.l0)
         
     def _init_ticks(self):
         self.ticks, self.tick_labels = [], []
@@ -124,6 +136,12 @@ class BehavViewer(QGraphicsView):
 
             t = time_ms - self.max_show_ms/2 +  n*dt
             self.tick_labels[n].setPlainText(f"{t/1000:.2f}")
+            
+    def _update_line(self, time_ms):
+        if self.duration_ms == 0:
+            return
+        center_x = time_ms / self.duration_ms * self.width
+        self.l0.setLine(QLineF(center_x, 0, center_x, self.height))
  
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -140,11 +158,15 @@ class BehavViewer(QGraphicsView):
         self.scene.addItem(line)
         self.lines.append(line)
         line.update_position(scene_width=self.width, scene_height=self.height, duration_ms=self.duration_ms)
+        self.num_items[key_id] += 1
         
     def delete_item(self, time_ms):
         for line in self.lines:
-            if line.time_ms_start <= time_ms <= line.time_ms_end:
-                self.scene.removeItem(line)
+            if line.scene() == self.scene:
+                if line.time_ms_start <= time_ms <= line.time_ms_end:
+                    key_id = line.key_id
+                    self.num_items[key_id] -= 1
+                    self.scene.removeItem(line)
         
     def update_duration(self, duration_ms):
         self.duration_ms = duration_ms
@@ -155,10 +177,15 @@ class BehavViewer(QGraphicsView):
         center_x = time_ms / self.duration_ms * self.width
         self.centerOn(center_x, self.height/2)
         self._update_ticks(time_ms)
+        self._update_line(time_ms)
     
     def connect_controller(self, video_control_obj: Controller):
         video_control_obj.position_updated.connect(self.on_position_changed)
         self.update_controller = video_control_obj.update_position
+        
+    # @property
+    # def num_items(self):
+    #     return len(self.lines)
         
         
 class BehavItemRow(QPushButton):
@@ -170,6 +197,7 @@ class BehavItemRow(QPushButton):
         global CURRENT_KEY_ID
         self.key_id = CURRENT_KEY_ID
         CURRENT_KEY_ID += 1
+        KEEP_TIME_MS.append(-1)
         
         super().__init__(parent)
         self.setCheckable(True)
@@ -215,7 +243,7 @@ class BehavPanel(QWidget):
         self.is_modifying = False
         self.current_selection = -1
         self.duration_ms = 0
-        self._reset_keep()
+        # self._reset_keep()
         
     def _init_ui(self):
         def _set_label(lb):
@@ -276,22 +304,10 @@ class BehavPanel(QWidget):
         
     def connect_controller(self, video_control_obj: Controller):
         self.video_controller = video_control_obj
-        # self.video_controller.video_loaded.connect(self.video_loaded)
-        # self.video_controller.video_closed.connect(self.video_closed)
-        # self.video_paths = video_control_obj.current_video_path
         self.video_controller.duration_updated.connect(self._update_duration)
         
     def connect_behav_viewer(self, behave_viewer_obj: BehavViewer):
-        self.behav_viewer = behave_viewer_obj
-        
-    # def video_loaded(self, video_path: str):
-    #     self.video_path = video_path
-    #     if self.bcollector is None:
-    #         self.bcollector = BehavCollector()
-    #     self.bcollector.add_video_path(video_path)
-        
-    # def video_closed(self, video_id: int):
-    #     self.bcollector.delete_video_path(video_id)
+        self.behav_viewer = behave_viewer_obj        
     
     def _add_behav(self):
         if self.bcollector is None:
@@ -415,7 +431,17 @@ class BehavPanel(QWidget):
             self._add_behav_set()
             for n in range(self.bcollector.num):
                 for time_ms in self.bcollector.get_value(n, "time_ms"):
-                    self._add_behav_time(n, time_ms, add_to_collector=False)
+                    self._add_behav_time(n, time_ms, add_to_collector=False)    
+
+            self._compare_item_number()
+    
+    def _compare_item_number(self):
+        # double-check if the number of items in behav_viewer matches the bcollector
+        for n in range(self.bcollector.num):
+            if self.bcollector.behav_set[n].num != self.behav_viewer.num_items[n]:
+                raise ValueError(f"Behavior {n} is not loaded correctly (%d/%d). Please check the data."%(
+                    self.bcollector.behav_set[n].num, self.behav_viewer.num_items[n]
+                ))
     
     @error2messagebox(to_warn=True)
     def load_behavior_header(self):
@@ -476,7 +502,8 @@ class BehavPanel(QWidget):
         
     def _add_behav_time(self, key_id, time_ms, add_to_collector=True):
         if add_to_collector:
-            self.bcollector.add_behav_time(key_id, time_ms)
+            # TODO: synchronize behavior time rather than updating each time
+            self.bcollector.add_behav_time(key_id, time_ms) 
             
         if not isinstance(time_ms, list):
             _time_ms = [time_ms, time_ms+1]
@@ -486,51 +513,69 @@ class BehavPanel(QWidget):
         self.behav_viewer.add_item(key_id, 
             self.bcollector.get_color(key_id),
             _time_ms[0], _time_ms[1])
+        
+        if add_to_collector:
+            self._compare_item_number() # check
     
     def _keep_behav_time(self, key_id):
-        if self.key_id_activate != -1 and self.key_id_activate != key_id:
-            if key_id < self.bcollector.num:
-                raise ValueError("Please add new behavior after saving the last selection")
+        if key_id >= CURRENT_KEY_ID:
+            raise ValueError("Unexpected key_id")
         
         tp = self.bcollector.get_type(key_id)
         t0 = self.current
         if tp == EVENT:
             self._add_behav_time(key_id, t0)
         elif tp == STATE:
-            if self.keep_time_ms != -1:
-                self._add_behav_time(key_id, [self.keep_time_ms, t0])
-                self._reset_keep()
-                if self.is_modifying:
-                    self._toggle_modifying(-1)
-                
-                self.behav_rows[key_id].setChecked(False)
-                self.behav_rows[key_id].finding_timepoints = False
-            else:
-                self.keep_time_ms = t0
-                self.key_id_activate = key_id
+            if KEEP_TIME_MS[key_id] == -1: # stack new time_ms
+                KEEP_TIME_MS[key_id] = t0
+                LAST_ACTIVE_KEY.append(key_id)
                 self.behav_rows[key_id].setChecked(True)
                 self.behav_rows[key_id].finding_timepoints = True
+            else: # add time range
+                tr = [KEEP_TIME_MS[key_id], t0]
+                if tr[1] < tr[0]: tr[0], tr[1] = tr[1], tr[0] 
+                self._add_behav_time(key_id, tr)
+                self._undo_keep(key_id=key_id)
         else:
-            raise ValueError(f"Unexpected type {tp}")
+            raise ValueError(f"Unexpected type {tp}")    
     
     def handle_key_input(self, event):
         key = event.key()
         if key == Qt.Key_Z: # Undo
-            self._reset_keep()
+            self._undo_keep()
         elif key == Qt.Key_X:
             self._delete_behav(self.current)
         else:
             key_id = pyqt_KEY_MAP[key]
             self._keep_behav_time(key_id)
             
+    def _undo_keep(self, key_id=-1):
+        if len(LAST_ACTIVE_KEY) == 0:
+            return
+        
+        if key_id == -1:
+            key_id = LAST_ACTIVE_KEY.pop()
+        else:
+            LAST_ACTIVE_KEY.remove(key_id)
+            
+        KEEP_TIME_MS[key_id] = -1
+        if self.is_modifying:
+            self._toggle_modifying(-1)
+            
+        self.behav_rows[key_id].setChecked(False)
+        self.behav_rows[key_id].finding_timepoints = False
+            
     def _reset_keep(self):
-        self.keep_time_ms = -1
-        self.key_id_activate = -1
+        # self.keep_time_ms = -1
+        # self.key_id_activate = -1
+        raise ValueError("Deprecated")
         
     def _delete_behav(self, time_ms):
-        for b in self.bcollector.behav_set:
-            b.delete(time_ms)
-        self.behav_viewer.delete_item(time_ms)        
+        # for b in self.bcollector.behav_set:
+        #     b.delete(time_ms)
+        # TODO: tracking both bcollector and behavior viewer is dangerous.
+        self.bcollector.delete_behav_time(time_ms)
+        self.behav_viewer.delete_item(time_ms)
         
     def _update_duration(self, duration_ms):
         self.duration_ms = duration_ms

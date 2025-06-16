@@ -80,5 +80,5 @@ class MainWindow(QMainWindow):
         if key in (Qt.Key_H, Qt.Key_J, Qt.Key_K, Qt.Key_L, Qt.Key_Space):
             self.controller.handle_key_input(event)
         elif key in pyqt_KEY_MAP:
-            self.behav_control.handle_key_input(key)
+            self.behav_control.handle_key_input(event)
 
