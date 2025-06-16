@@ -50,7 +50,7 @@ class BehavInfo:
                 _tr = t
             if del_time_ms >= _tr[0] and del_time_ms < _tr[1]:
                 self.time_ms.pop(n)
-                break
+                # break
     
     def update_video_path(self, video_path: List[str]):
         self.video_path = video_path
@@ -87,6 +87,13 @@ class BehavInfo:
             time_ms=data.get("time_ms", [])
         )
         
+    @property
+    def num(self):
+        if self.time_ms is None:
+            return 0
+        else:
+            return len(self.time_ms)
+        
         
 def is_valid_path(func):
     def wrapper(self, *args, **kwargs):
@@ -94,6 +101,7 @@ def is_valid_path(func):
     return wrapper
         
 
+# TODO: change to singleton pattern?
 class BehavCollector:
     def __init__(self):
         self.behav_set = []
