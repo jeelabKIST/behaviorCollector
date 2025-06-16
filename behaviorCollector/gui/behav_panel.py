@@ -162,10 +162,11 @@ class BehavViewer(QGraphicsView):
         
     def delete_item(self, time_ms):
         for line in self.lines:
-            if line.time_ms_start <= time_ms <= line.time_ms_end:
-                key_id = line.key_id
-                self.num_items[key_id] -= 1
-                self.scene.removeItem(line)
+            if line.scene() == self.scene:
+                if line.time_ms_start <= time_ms <= line.time_ms_end:
+                    key_id = line.key_id
+                    self.num_items[key_id] -= 1
+                    self.scene.removeItem(line)
         
     def update_duration(self, duration_ms):
         self.duration_ms = duration_ms
@@ -303,22 +304,10 @@ class BehavPanel(QWidget):
         
     def connect_controller(self, video_control_obj: Controller):
         self.video_controller = video_control_obj
-        # self.video_controller.video_loaded.connect(self.video_loaded)
-        # self.video_controller.video_closed.connect(self.video_closed)
-        # self.video_paths = video_control_obj.current_video_path
         self.video_controller.duration_updated.connect(self._update_duration)
         
     def connect_behav_viewer(self, behave_viewer_obj: BehavViewer):
-        self.behav_viewer = behave_viewer_obj
-        
-    # def video_loaded(self, video_path: str):
-    #     self.video_path = video_path
-    #     if self.bcollector is None:
-    #         self.bcollector = BehavCollector()
-    #     self.bcollector.add_video_path(video_path)
-        
-    # def video_closed(self, video_id: int):
-    #     self.bcollector.delete_video_path(video_id)
+        self.behav_viewer = behave_viewer_obj        
     
     def _add_behav(self):
         if self.bcollector is None:
@@ -513,7 +502,8 @@ class BehavPanel(QWidget):
         
     def _add_behav_time(self, key_id, time_ms, add_to_collector=True):
         if add_to_collector:
-            self.bcollector.add_behav_time(key_id, time_ms)
+            # TODO: synchronize behavior time rather than updating each time
+            self.bcollector.add_behav_time(key_id, time_ms) 
             
         if not isinstance(time_ms, list):
             _time_ms = [time_ms, time_ms+1]
@@ -526,32 +516,6 @@ class BehavPanel(QWidget):
         
         if add_to_collector:
             self._compare_item_number() # check
-    
-    # def _keep_behav_time(self, key_id):
-    #     if self.key_id_activate != -1 and self.key_id_activate != key_id:
-    #         if key_id < self.bcollector.num:
-    #             raise ValueError("Please add new behavior after saving the last selection")
-        
-    #     tp = self.bcollector.get_type(key_id)
-    #     t0 = self.current
-    #     if tp == EVENT:
-    #         self._add_behav_time(key_id, t0)
-    #     elif tp == STATE:
-    #         if self.keep_time_ms != -1:
-    #             self._add_behav_time(key_id, [self.keep_time_ms, t0])
-    #             self._reset_keep()
-    #             if self.is_modifying:
-    #                 self._toggle_modifying(-1)
-                
-    #             self.behav_rows[key_id].setChecked(False)
-    #             self.behav_rows[key_id].finding_timepoints = False
-    #         else:
-    #             self.keep_time_ms = t0
-    #             self.key_id_activate = key_id
-    #             self.behav_rows[key_id].setChecked(True)
-    #             self.behav_rows[key_id].finding_timepoints = True
-    #     else:
-    #         raise ValueError(f"Unexpected type {tp}")
     
     def _keep_behav_time(self, key_id):
         if key_id >= CURRENT_KEY_ID:
@@ -568,7 +532,9 @@ class BehavPanel(QWidget):
                 self.behav_rows[key_id].setChecked(True)
                 self.behav_rows[key_id].finding_timepoints = True
             else: # add time range
-                self._add_behav_time(key_id, [KEEP_TIME_MS[key_id], t0])
+                tr = [KEEP_TIME_MS[key_id], t0]
+                if tr[1] < tr[0]: tr[0], tr[1] = tr[1], tr[0] 
+                self._add_behav_time(key_id, tr)
                 self._undo_keep(key_id=key_id)
         else:
             raise ValueError(f"Unexpected type {tp}")    
@@ -605,8 +571,10 @@ class BehavPanel(QWidget):
         raise ValueError("Deprecated")
         
     def _delete_behav(self, time_ms):
-        for b in self.bcollector.behav_set:
-            b.delete(time_ms)
+        # for b in self.bcollector.behav_set:
+        #     b.delete(time_ms)
+        # TODO: tracking both bcollector and behavior viewer is dangerous.
+        self.bcollector.delete_behav_time(time_ms)
         self.behav_viewer.delete_item(time_ms)
         
     def _update_duration(self, duration_ms):

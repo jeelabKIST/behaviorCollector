@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, List, Union
-from collections import OrderedDict
+from collections import defaultdict
 import json
 import os
 
@@ -48,9 +48,9 @@ class BehavInfo:
                 _tr = [t, t+1]
             else:
                 _tr = t
-            if del_time_ms >= _tr[0] and del_time_ms < _tr[1]:
+
+            if del_time_ms >= _tr[0] and del_time_ms <= _tr[1]:
                 self.time_ms.pop(n)
-                # break
     
     def update_video_path(self, video_path: List[str]):
         self.video_path = video_path
@@ -96,6 +96,7 @@ class BehavInfo:
         
         
 def is_valid_path(func):
+    # TODO: remove this decorator (deprecated)
     def wrapper(self, *args, **kwargs):
         return func(self, *args, **kwargs)
     return wrapper
@@ -111,22 +112,17 @@ class BehavCollector:
         self.video_path = video_path
         for b in self.behav_set:
             b.update_video_path(video_path)
-        
-    # def add_video_path(self, video_path: str):
-    #     self.video_path.append(video_path)
-    #     for b in self.behav_set:
-    #         b.add_video_path(video_path)
-            
-    # def delete_video_path(self, video_id: int):
-    #     self.video_path[video_id] = None
-    #     for b in self.behav_set:
-    #         b.delete_video_path(video_id)
     
     @is_valid_path
     def add_behav_time(self, behav_id, time_ms):
         if self.num <= behav_id:
             return
         self.behav_set[behav_id].append(time_ms)
+        
+    def delete_behav_time(self, time_ms):
+        # remove all the times 
+        for b in self.behav_set:
+            b.delete(time_ms)
 
     def add_behav(self, name: str, note: str, type: str, color_code: str):
         # check first
