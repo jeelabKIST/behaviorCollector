@@ -43,6 +43,9 @@ class BehavInfo:
             self.time_ms.append(time_ms)
             
     def delete(self, del_time_ms):
+        if self.time_ms is None:
+            return
+        
         for n, t in enumerate(self.time_ms):
             if self.type == EVENT:
                 _tr = [t, t+1]
