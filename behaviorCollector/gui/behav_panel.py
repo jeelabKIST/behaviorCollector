@@ -121,6 +121,7 @@ class BehavPanel(QWidget):
         self.text_name = QLineEdit()
         self.comb_type = QComboBox()
         self.color_picker = ColorPicker()
+        self.color_picker.setFixedSize(80, 20)
         self.button_add = QPushButton("Add Behavior")
         self.button_clear = QPushButton("Clear Input")
         self.text_note = QPlainTextEdit()

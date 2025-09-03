@@ -40,6 +40,8 @@ class Controller(QWidget):
         
         self.toggle_play_button = QToolButton()
         self.toggle_play_button.setText("▶")
+        self.toggle_play_button.setFixedHeight(20)
+        self.toggle_play_button.setMinimumWidth(20)
         self.toggle_play_button.clicked.connect(self.toggle_play)
         self.next_scene = QToolButton()
         self.next_scene.setText("▶▶")
@@ -48,6 +50,8 @@ class Controller(QWidget):
         self.prev_scene.setText("◀◀")
         self.prev_scene.clicked.connect(partial(self.seek_relative, -100))
         self.current_label = QLabel("Time: 0.000 s")
+        self.current_label.setFixedHeight(20)
+        self.current_label.setMinimumWidth(100)
         
         self.speed_box = QDoubleSpinBox()
         self.speed_box.setValue(1)
