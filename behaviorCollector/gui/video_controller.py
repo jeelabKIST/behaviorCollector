@@ -51,7 +51,7 @@ class Controller(QWidget):
         
         self.speed_box = QDoubleSpinBox()
         self.speed_box.setValue(1)
-        self.speed_box.setRange(0.5, 3)
+        self.speed_box.setRange(0.1, 5)
         self.speed_box.setSingleStep(0.1)
         self.speed_box.valueChanged.connect(self._update_speed)
         
@@ -267,10 +267,11 @@ class Controller(QWidget):
                     border: 1px solid #409EFF;
                     width: 14px;
                     height: 14px;
-                    margin: -5px 0; /* 위아래로 중앙 정렬 */
+                    margin: -4px 0; /* 위아래로 중앙 정렬 */
                     border-radius: 7px;
                 }
                 """)
+        self.slider.setFixedHeight(20)
 
     
         

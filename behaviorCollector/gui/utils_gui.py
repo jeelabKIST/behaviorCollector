@@ -14,7 +14,7 @@ class ColorPicker(QWidget):
         self.setCursor(Qt.PointingHandCursor)
 
     def mousePressEvent(self, event):
-        color = QColorDialog.getColor(self._color, self, "Select Color")
+        color = QColorDialog.getColor(self._color, self, "Select Color", QColorDialog.DontUseNativeDialog)
         if color.isValid():
             self._color = color
             self.update()

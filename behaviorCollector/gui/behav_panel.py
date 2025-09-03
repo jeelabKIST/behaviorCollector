@@ -24,8 +24,16 @@ pyqt_KEY_MAP = OrderedDict({
             Qt.Key_D: 7,
             Qt.Key_F: 8,
             Qt.Key_G: 9,
-            Qt.Key_Z: 10, # -> quit collecting
-            Qt.Key_X: 11 # -> remove collecting
+            Qt.Key_1: 10,
+            Qt.Key_2: 11,
+            Qt.Key_3: 12,
+            Qt.Key_4: 13,
+            Qt.Key_5: 14,
+            Qt.Key_6: 15,
+            Qt.Key_7: 16,
+            Qt.Key_8: 17,
+            Qt.Key_Z: 18, # -> quit collecting
+            Qt.Key_X: 19 # -> remove collecting
         })
 
 
@@ -202,6 +210,8 @@ class BehavPanel(QWidget):
             
         else:    
             bid = self.bcollector.num
+            if bid == len(pyqt_KEY_MAP)-2:
+                raise ValueError(f"Maximum number of behaviors reached ({bid}). Cannot add more.")
             
             self.bcollector.add_behav(
                 name=name,
