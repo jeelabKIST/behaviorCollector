@@ -133,7 +133,7 @@ class BehavPanel(QWidget):
         self._reset_input()
         
         self.comb_type.addItems(BEHAV_TYPES)
-        self.button_add.clicked.connect(self._add_behav)
+        self.button_add.clicked.connect(self.add_behav)
         self.button_clear.clicked.connect(self.clear_behav)
         
         layout_v.addLayout(layout_form)
@@ -173,7 +173,8 @@ class BehavPanel(QWidget):
     def connect_behav_viewer(self, behave_viewer_obj: BehavViewer):
         self.behav_viewer = behave_viewer_obj        
     
-    def _add_behav(self):
+    @error2messagebox(to_warn=True)
+    def add_behav(self, checked=False):
         if self.bcollector is None:
             if self.video_controller.num_video == 0:
                 raise ValueError("Please load the video first")
@@ -263,7 +264,7 @@ class BehavPanel(QWidget):
             self.color_picker.setColor(QColor(self.bcollector.get_color(key_id)))
             
     @error2messagebox(to_warn=True)
-    def clear_behav(self):
+    def clear_behav(self, checked=False):
         if self.is_modifying:
             
             key_id = self.current_selection
@@ -283,8 +284,8 @@ class BehavPanel(QWidget):
     def load_behavior(self):
         path_dir = QFileDialog.getExistingDirectory(self, "Select behavior directory")
         if path_dir:
-            if self.bcollector is not None:
-                raise ValueError("Behavior collector already loaded. Please create a new instance.")
+            # if self.bcollector is not None:
+            #     raise ValueError("Behavior collector already loaded. Please create a new instance.")
             
             if self.video_controller.num_video == 0:
                 raise ValueError("Please load the video first")
@@ -314,8 +315,8 @@ class BehavPanel(QWidget):
         file_path, _ = QFileDialog.getOpenFileName(self, "Behavior header",
                                                    "", "Behavior headers (*.json)")
         if file_path:
-            if self.bcollector is not None:
-                raise ValueError("Behavior collector already loaded. Please create a new instance.")
+            # if self.bcollector is not None:
+            #     raise ValueError("Behavior collector already loaded. Please create a new instance.")
             self.bcollector = BehavCollector.load_header(file_path)
             self._add_behav_set()
     
@@ -345,10 +346,14 @@ class BehavPanel(QWidget):
                 QMessageBox.information(self, "Success", "Behavior epochs exported successfully.")
         
     def _add_behav_set(self):
+        existing_keys = [b.behav_key for b in self.behav_rows]
         for n in range(self.bcollector.num):
             # add behavior
             key = list(pyqt_KEY_MAP.keys())[n]
             key_str = QKeySequence(key).toString()
+            if key_str in existing_keys:
+                continue
+            existing_keys.append(key_str)
             
             row = BehavItemRow(
                 key_str,

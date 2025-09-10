@@ -30,10 +30,10 @@ class MainWindow(QMainWindow):
         self.controller = Controller()
         l1.addWidget(self.behav_viewer)
         l1.addWidget(self.controller)
-        layout.addLayout(l1, stretch=6)
+        layout.addLayout(l1, stretch=5)
         
         self.behav_control = BehavPanel()
-        layout.addWidget(self.behav_control, stretch=4)
+        layout.addWidget(self.behav_control, stretch=5)
         
         widget = QWidget()
         widget.setLayout(layout)

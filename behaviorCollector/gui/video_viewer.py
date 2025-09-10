@@ -17,7 +17,7 @@ class VideoViewerWindow(QMainWindow):
     def __init__(self, video_path, vid: int):
         super().__init__()
         self.setWindowTitle(f"{video_path} - Video Viewer")
-        self.setMinimumSize(640, 640)
+        self.setMinimumSize(480, 480)
         self.setFocusPolicy(Qt.NoFocus)
         self.vid = vid
         
@@ -32,7 +32,7 @@ class VideoViewerWindow(QMainWindow):
         
         # QGraphicsScene setup
         self.scene = QGraphicsScene()
-        self.scene.setSceneRect(0, 0, 1000, 1000)
+        self.scene.setSceneRect(0, 0, 600, 600)
         self.view = QGraphicsView(self.scene)
         self.view.setAlignment(Qt.AlignCenter)
         self.enable_zoom = False
