@@ -107,9 +107,17 @@ def is_valid_path(func):
 
 # TODO: change to singleton pattern?
 class BehavCollector:
+    def __new__(cls):
+        if not hasattr(cls, "_instance"):
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self):
-        self.behav_set = []
-        self.video_path = []
+        cls = type(self)
+        if not hasattr(cls, "_init"):
+            self.behav_set = []
+            self.video_path = []
+            cls._init = True
         
     def update_video_path(self, video_path: List[str]):
         self.video_path = video_path
@@ -157,19 +165,6 @@ class BehavCollector:
             behav.save(path_dir)
         return True
     
-    @staticmethod
-    def load(path_dir: str):
-        # if self.num != 0:
-        #     raise ValueError("Behavior alread loaded. Please create a new BehavCollector instance.")
-        behav_collector = BehavCollector()
-        behav_set =  [f for f in os.listdir(path_dir) if PREFIX in f and ".json" in f]
-        
-        for f in behav_set:
-            behav_collector.behav_set.append(BehavInfo.load(os.path.join(path_dir, f)))
-        behav_collector.behav_set = sorted(behav_collector.behav_set, key=lambda b: b.id)
-        
-        return behav_collector
-    
     @is_valid_path
     def save_header(self, file_name: str):
         header = {
@@ -185,13 +180,44 @@ class BehavCollector:
         return True
     
     @staticmethod
+    def load(path_dir: str):
+        # if self.num != 0:
+        #     raise ValueError("Behavior alread loaded. Please create a new BehavCollector instance.")
+        behav_collector = BehavCollector()
+        file_behav_set =  [f for f in os.listdir(path_dir) if PREFIX in f and ".json" in f]
+        existing_names = [b.name for b in behav_collector.behav_set]
+
+        for f in file_behav_set:
+            b = BehavInfo.load(os.path.join(path_dir, f))
+            if b.name in existing_names:
+                print(f"Behavior {b.name} already exists.")
+                continue
+            
+            existing_names.append(b.name)
+            behav_collector.behav_set.append(b)
+        
+        # sort
+        behav_collector.behav_set = sorted(behav_collector.behav_set, key=lambda b: b.id)
+
+        # for f in behav_set:
+        #     behav_collector.behav_set.append(BehavInfo.load(os.path.join(path_dir, f)))
+        # behav_collector.behav_set = sorted(behav_collector.behav_set, key=lambda b: b.id)
+        
+        return behav_collector
+    
+    @staticmethod
     def load_header(file_name: str):
         with open(file_name, 'r') as f:
             header = json.load(f)
         
         behav_collector = BehavCollector()
+        existing_names = [b.name for b in behav_collector.behav_set]
 
         for name, tp, c, note in zip(header["behav_names"], header["types"], header["color_codes"], header["notes"]):
+            if name in existing_names:
+                print(f"Behavior {name} already exists.")
+                continue
+            
             behav_collector.add_behav(
                 name=name,
                 type=tp,
