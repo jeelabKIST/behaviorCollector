@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 
 FPS_WRITE = 10
+PADDING_MS = 1000  # export window padding before/after behavior
 
 
 class BehavExtractor:
@@ -44,10 +45,32 @@ class BehavExtractor:
         
         return True
     
+    def _get_video_duration_ms(self, cap):
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        if fps <= 0:
+            return None
+        return (total_frames / fps) * 1000
+
+    def _draw_behavior_border(self, frame):
+        h, w = frame.shape[:2]
+        cv2.rectangle(frame, (0, 0), (w - 1, h - 1), (0, 0, 255), 2)
+        return frame
+
     def extract_single_epoch(self, prefix_video, start_ms: int, end_ms: int):
+        padded_start = max(0, start_ms - PADDING_MS)
+        padded_end = end_ms + PADDING_MS
+
         for n, cap in enumerate(self.video_capture):
             if not cap.isOpened():
                 raise ValueError("Video capture cannot be opened")
+
+            duration_ms = self._get_video_duration_ms(cap)
+            start_clip = padded_start
+            end_clip = padded_end
+            if duration_ms is not None:
+                start_clip = max(0, min(start_clip, duration_ms))
+                end_clip = max(start_clip, min(end_clip, duration_ms))
             
             writter = cv2.VideoWriter(
                 f"{prefix_video}({n}).avi",
@@ -56,14 +79,16 @@ class BehavExtractor:
                 (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
             )
             
-            cap.set(cv2.CAP_PROP_POS_MSEC, start_ms)
+            cap.set(cv2.CAP_PROP_POS_MSEC, start_clip)
             while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
                 current_ms = cap.get(cv2.CAP_PROP_POS_MSEC)
-                if current_ms > end_ms:
+                if current_ms > end_clip:
                     break
+                if start_ms <= current_ms <= end_ms:
+                    frame = self._draw_behavior_border(frame)
                 writter.write(frame)
             writter.release()
 
