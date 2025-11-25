@@ -12,6 +12,7 @@ def setup_package():
         install_requires=[
             "pyqt5",
             "numpy",
+            "scipy",
             "opencv-python",
             "matplotlib",
             "tqdm"

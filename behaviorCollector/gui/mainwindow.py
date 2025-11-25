@@ -1,9 +1,11 @@
-from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QMainWindow, QMessageBox
+from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QMainWindow, QMessageBox, QFileDialog
 from PyQt5.QtCore import Qt, pyqtSignal
+from scipy.io import loadmat
 from .video_controller import Controller
 from .behav_panel import BehavPanel, BehavViewer, pyqt_KEY_MAP
 from .utils_gui import error2messagebox
 from .config_menu import MenuBuilder
+from .eeg_dialog import EEGDialog
 
 
 class MainWindow(QMainWindow):
@@ -21,6 +23,7 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         
         self.is_behav_saved = False
+        self.eeg_dialog = None
         
     def _init_ui(self):
         layout = QHBoxLayout()
@@ -53,6 +56,7 @@ class MainWindow(QMainWindow):
         self.main_window_closed.connect(self.controller.close_all_viewers)
         self.controller.connect_menubar(self.menubar)
         self.behav_control.connect_menubar(self.menubar)
+        self.menubar.load_eeg_requested.connect(self.open_eeg)
         
     def behav_saved(self):
         self.is_behav_saved = True
@@ -81,4 +85,29 @@ class MainWindow(QMainWindow):
             self.controller.handle_key_input(event)
         elif key in pyqt_KEY_MAP:
             self.behav_control.handle_key_input(event)
+
+    @error2messagebox(to_warn=True)
+    def open_eeg(self):
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open EEG File",
+            "",
+            "MAT Files (*.mat);;All Files (*.*)"
+        )
+        if not filepath:
+            return
+
+        eeg_data = loadmat(filepath)
+
+        if "data" not in eeg_data or "times" not in eeg_data:
+            raise ValueError("The selected MAT file does not contain required EEG fields: data, times.")
+
+        if self.eeg_dialog is not None:
+            try:
+                self.eeg_dialog.close()
+            except Exception:
+                pass
+
+        self.eeg_dialog = EEGDialog(eeg_data, controller=self.controller, parent=self)
+        self.eeg_dialog.show()
 
