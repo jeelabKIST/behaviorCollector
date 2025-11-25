@@ -5,6 +5,7 @@ from .keymap_viewer import ShortcutMapDialog
 
 class MenuBuilder(QObject):
     load_video_requested    = pyqtSignal()
+    load_eeg_requested      = pyqtSignal()
     load_header_requested   = pyqtSignal()
     load_behav_requested    = pyqtSignal()
     save_header_requested   = pyqtSignal()
@@ -25,6 +26,11 @@ class MenuBuilder(QObject):
         open_video_action = QAction("Open Video", self.parent)
         open_video_action.triggered.connect(self.load_video_requested.emit)
         file_menu.addAction(open_video_action)
+
+        # Open EEG
+        open_eeg_action = QAction("Open EEG", self.parent)
+        open_eeg_action.triggered.connect(self.load_eeg_requested.emit)
+        file_menu.addAction(open_eeg_action)
 
         file_menu.addSeparator()
 
