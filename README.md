@@ -32,6 +32,17 @@ This will launch the main GUI window for behavior annotation.
 For the full shortcut list, see `Help > Shortcut`.  
 > **NOTE:** You can open multiple videos for simultaneous analysis, but make sure that their recording times are properly synchronized.
 
+## Load EEG
+1. Go to `File > Open EEG` and select a `.mat` file (EEG data). Other extensions are allowed, but the file must contain `data`, `times`, and optionally `tdelay_video`.
+2. A dialog will open:
+   - Checkboxes to pick Channel ID(s) (multi-select, up to 5 shown) and a single CBRAIN ID.
+   - Plot controls: `ymin`, `ymax`, and the ±window (seconds) around the current video time. Defaults: ymin = -0.2, ymax = 0.2, window = 0.5 s.
+3. The raw signal subplot(s) update live when:
+   - Channel/CBRAIN selection changes,
+   - y-range or window changes,
+   - the video time changes (black vertical bar marks the current video time).
+4. Time on the plot is aligned to video as `t = times - tdelay_video`.
+
 ## Add behavior type
 1. Use the panel on the right side of the GUI labeled `Behavior Name`, `Behavior Type`, `Color Identifier`, and `Note`.
 - `Behavior Name`: Behavior name (e.g., `grooming`)
@@ -115,7 +126,7 @@ If you click on an interval in the timeline, the video will jump to the start ti
 To export only selected behavior epochs (e.g., a subset of behavior types), use:
 ```File > Export Selected Behavior epochs```
 This will export:
-- Clipped videos (.avi) for `State` behaviors
+- Clipped videos (.avi) for `State` behaviors (includes 1 s before onset and 1 s after offset; frames inside the true onset→offset window are outlined with a thin red border)
 - Snapshot images (.jpg) for `Event` behaviors  
 
 based on your annotation.
